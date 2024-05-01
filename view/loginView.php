@@ -1,0 +1,69 @@
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Sistema de control">
+    <meta name="author" content="coimbraGerman">
+    <title>SisColina</title>
+    <!-- Bootstrap -->
+    
+    <link rel="stylesheet" href="includes/bootstrap.min.css">
+    <link rel="stylesheet" href="includes/adminlte.css">
+    <link rel="icon" href="includes/logo.png">
+    <link rel="stylesheet" href="includes/jquery-ui.css">
+    <link rel="stylesheet" href="includes/complements/all.min.css">
+    <style>
+    /* Estilos personalizados para centrar verticalmente */
+    .center-vertical {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
+</head>
+<body style="background-color:#ffbf00">
+    
+    
+    <div class="container center-vertical">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+            <form>
+                <div class="form-group">
+                    <h1 class="text-white text-center"><strong>Bienvenidos al Sistema de Seguridad Colina</strong></h1>
+                    <h1 class="h6 mb-3 fw-normal text-white text-center">Por favor ingrese sus datos</h1>
+                    
+                    <input type="text" class="form-control" id="usrLogin" placeholder="Usuario">
+                    <input type="password" class="form-control" id="pswLogin" placeholder="Password">
+                        
+                    <div class="row">
+                        <div class="col-4"></div>
+                        <div class="col-6"><button class="w-50 btn btn-primary" onclick="login()"><strong>Ingresar</strong></button></div>
+                        <div class="col-2"></div>
+                    </div>
+                    <p class="mt-5 mb-3 text-muted text-center">© 2017–2021</p>
+                    <br/>
+                    <div class="AVISO1"></div>
+                </div>
+
+                
+                
+            </form>
+            </div>
+        </div>
+    </div>
+
+
+    
+  
+
+
+
+  <script src="includes/jquery.min.js"></script>
+  <script src="includes/ajax/login.js"></script>
+
+</body>
+</html>

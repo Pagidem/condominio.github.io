@@ -1,0 +1,1032 @@
+
+/*1 INICIAR SESION*/
+DELIMITER $$
+CREATE PROCEDURE sesion (IN u varchar(60), p varchar(60))
+BEGIN
+DECLARE usu int(11);
+SELECT idusuario INTO @usu FROM usuario WHERE usuario=u AND clave=p AND estado='1' LIMIT 1;
+SELECT @usu as resultado;
+COMMIT;
+END
+
+/*2 EXISTE PERSONA*/
+DROP procedure IF EXISTS 'p_existep';
+DELIMITER $$
+CREATE PROCEDURE p_existep (IN ci int)
+BEGIN
+SELECT idd,cid from documento where cid=ci;
+END
+
+/*3 OBTENER EL DATO DE UNA PERSONA*/
+DROP PROCEDURE IF EXISTS 'p_datosp';
+DELIMITER $$
+CREATE PROCEDURE p_datosp(IN ci varchar(60))
+BEGIN
+SELECT p.idp,d.extension, d.tipo, p.celular, p.nombres, p.apaterno, p.amaterno FROM persona as p INNER JOIN documento as d ON p.ci=d.idd WHERE d.cid=ci LIMIT 1;
+END
+
+/*4 OBTENER EL DATO DE UN VEHICULO*/
+DROP PROCEDURE IF EXISTS 'p_datosve';
+DELIMITER $$
+CREATE PROCEDURE p_datosve(IN placa varchar(10), letras varchar(10))
+BEGIN
+SELECT idv, ocupantes, tipo, marca, foto FROM vehiculo where placa=placa AND letras=letras;
+END;
+
+
+/* 5 REGISTRAR UNA VISITA CON DATOS PERSONALES YA REGISTRADOS*/
+DROP PROCEDURE IF EXISTS p_nvis1;
+DELIMITER $$
+CREATE PROCEDURE p_nvis1(IN placa varchar(10), letra varchar(10),ocupantes int,tipove varchar(60), marcav varchar(60), foto mediumblob,
+tvi varchar(60), emp varchar(60), fi varchar(12),hi varchar(12),fs varchar(12),hs varchar(12),
+ca int, bl varchar(10),obs varchar(255), persona int
+)
+BEGIN
+    DECLARE ultimoveh int(11);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    INSERT INTO `vehiculo` (`idv`, `placa`, `letras`, `ocupantes`, `tipo`, `marca`, `foto`) VALUES (NULL, placa, letra, ocupantes, tipove, marcav, foto);
+    SELECT MAX(idv) INTO @ultimoveh from vehiculo;
+    INSERT INTO 
+    `visita` (`idvisita`, 
+    `tipovi`, `empresa`, `fingreso`, `hingreso`, `fsalida`, `hsalida`,
+    `casa`, `bloque`, `observacion`, `estadov`, 
+    `persona`, `veh`, `responsable`) 
+    VALUES (NULL, 
+    tvi, emp, fi, hi, fs, hs,
+    ca, bl, obs, '1',
+    persona, @ultimoveh, '1');
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+/* 6 REGISTRAR UNA VISITA CON DATOS PERSONALES Y VEHICULARES REGISTRADOS*/
+DROP PROCEDURE IF EXISTS p_nvis2;
+DELIMITER $$
+CREATE PROCEDURE p_nvis2(IN
+tvi varchar(60), emp varchar(60), fi varchar(12),hi varchar(12),fs varchar(12),hs varchar(12),
+ca int, bl varchar(10),obs varchar(255), persona int, vehiculo int
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    INSERT INTO 
+    `visita` (`idvisita`, 
+    `tipovi`, `empresa`, `fingreso`, `hingreso`, `fsalida`, `hsalida`,
+    `casa`, `bloque`, `observacion`, `estadov`, 
+    `persona`, `veh`, `responsable`) 
+    VALUES (NULL, 
+    tvi, emp, fi, hi, fs, hs,
+    ca, bl, obs, '1',
+    persona, vehiculo, '1');
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+
+/* 5 REGISTRAR UNA VISITA COMPLETA*/
+DROP PROCEDURE IF EXISTS p_nvis3;
+DELIMITER $$
+CREATE PROCEDURE p_nvis3(IN ci varchar(60), ext varchar(10), td varchar(30), cel int, nombres varchar(120), paterno varchar(60), materno varchar(60),
+placa varchar(10), letra varchar(10),ocupantes int,tipove varchar(60), marcav varchar(60), foto mediumblob,
+tvi varchar(60), emp varchar(60), fi varchar(12),hi varchar(12),fs varchar(12),hs varchar(12),
+ca int, bl varchar(10),obs varchar(255), persona int
+)
+BEGIN
+    DECLARE ultimodoc int(11);
+    DECLARE ultimaper int(11);
+    DECLARE ultimoveh int(11);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    INSERT INTO `documento` (`idd`, `cid`, `extension`, `tipo`) VALUES (NULL, ci, ext, td);
+    SELECT MAX(idd) INTO @ultimodoc from documento;
+    INSERT INTO `persona` (`idp`, `nombres`, `apaterno`, `amaterno`, `celular`, `ci`) VALUES (NULL, nombres, paterno, materno, cel, @ultimodoc);
+    SELECT MAX(idp) INTO @ultimaper from persona;
+    INSERT INTO `vehiculo` (`idv`, `placa`, `letras`, `ocupantes`, `tipo`, `marca`, `foto`) VALUES (NULL, placa, letra, ocupantes, tipove, marcav, foto);
+    SELECT MAX(idv) INTO @ultimoveh from vehiculo;
+    INSERT INTO 
+    `visita` (`idvisita`, 
+    `tipovi`, `empresa`, `fingreso`, `hingreso`, `fsalida`, `hsalida`,
+    `casa`, `bloque`, `observacion`, `estadov`, 
+    `persona`, `veh`, `responsable`) 
+    VALUES (NULL, 
+    tvi, emp, fi, hi, fs, hs,
+    ca, bl, obs, '1',
+    @ultimaper, @ultimoveh, '1');
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+/* 8 OBTENER EL ID DEL USUARIO ACTUALMENTE ACTIVO EN EL SISTEMA*/
+DROP procedure IF EXISTS 'p_activo';
+DELIMITER $$
+CREATE PROCEDURE p_activo(IN t int)
+BEGIN
+SELECT usuario FROM usuario WHERE idusuario=t LIMIT 1;
+END
+
+/* 9 OBTENER TODAS LAS VISITAS/
+DELIMITER $$
+CREATE PROCEDURE p_visitas()
+BEGIN
+SELECT 
+v.idvisita, 
+p.nombres, p.apaterno, p.amaterno, 
+ve.placa, ve.letras, v.casa,v.bloque,
+v.fingreso,v.hingreso,v.estadov,p.idp,ve.idv 
+FROM visita as v 
+INNER JOIN persona as p 
+ON v.persona=p.idp 
+INNER JOIN vehiculo as ve 
+ON v.veh=ve.idv;
+END
+
+
+/*REGISTRAR UN EVENTO EN LA BITACORA
+DELIMITER $$
+CREATE PROCEDURE evento(IN e varchar(120),fecha varchar(30), hora varchar(10), responsable int)
+BEGIN
+START TRANSACTION;
+INSERT INTO `bitacora` (`idevento`, `evento`, `fechaevento`, `horaevento`, `responsable`)
+VALUES (NULL, e, fecha, hora, responsable);
+SELECT 'OK' as resultado;
+COMMIT;
+END;
+
+
+
+
+/*OBTENER EL ID DEL USUARIO ACTUALMENTE ACTIVO EN EL SISTEMA*/
+DROP procedure IF EXISTS 'p_activo'
+DELIMITER $$
+CREATE PROCEDURE p_activo(IN t int)
+BEGIN
+SELECT nicku FROM usuario WHERE idu=t LIMIT 1;
+END
+
+/*OBTENER EL TIPO DE USUARIO ACTUALMENTE ACTIVO EN EL SISTEMA PARA ELEGIR EL TIPO DE MENU*/
+DROP procedure IF EXISTS 'p_tipomenu'
+DELIMITER $$
+CREATE PROCEDURE p_tipomenu(IN t int)
+BEGIN
+SELECT tipo FROM usuario WHERE idu=t LIMIT 1;
+END
+
+
+
+
+/*OBTENER TODAS LAS reservas pendientes*/
+DROP PROCEDURE IF EXISTS 'habitaciones'
+DELIMITER $$
+CREATE PROCEDURE p_respen()
+BEGIN
+SELECT count(*) from solicitud WHERE tipo='reserva' AND estadoSolicitud=1;
+END
+
+
+/*OBTENER EL TICKET DE UNA SOLICITUD
+DROP PROCEDURE IF EXISTS 'p_uticket'
+DELIMITER $$
+CREATE PROCEDURE p_uticket()
+BEGIN
+SELECT MAX(ids) FROM `solicitud` ORDER BY ids ASC LIMIT 1;
+END
+
+
+
+
+/*Obtener el numero de reservas pendientes por hab*/
+DROP procedure IF EXISTS 'p_respenhab'
+DELIMITER $$
+CREATE PROCEDURE p_respenhab(IN h int)
+BEGIN
+SELECT count(*) as tickets from solicitud WHERE tipo='reserva' AND pieza=h AND estadoSolicitud=1;
+END
+
+/*HABITACIONES DESORDENADA*/
+DROP procedure IF EXISTS 'p_desordenadas'
+DELIMITER $$
+CREATE PROCEDURE p_desordenadas()
+BEGIN
+SELECT numeroh FROM `habitacion` WHERE estadoOcupado="disponible" AND estadoLimpieza="desordenada";
+END
+
+/*HABITACIONES DISPONIBLES*/
+DROP procedure IF EXISTS 'p_disponible'
+DELIMITER $$
+CREATE PROCEDURE p_disponible()
+BEGIN
+SELECT numeroh FROM `habitacion` WHERE estadoOcupado='disponible';
+END
+
+
+
+
+
+
+/*REGISTRAR UN CLIENTE*/
+drop procedure if exists p_nuevocliente;
+DELIMITER $$
+CREATE PROCEDURE p_nuevocliente(IN tipo varchar(50), numero varchar(50),extension varchar(10)
+, nombres varchar(60), apellidos varchar(60), celular varchar(30), estado varchar(25), ocupacion varchar(30), referencias varchar(30),fnac varchar(30), edad int,
+nacionalidad varchar(50))
+BEGIN
+    DECLARE ultimodocumento int(11);
+    DECLARE ultimapersona int(11);
+    DECLARE cedula varchar(30);
+    SELECT count(*) FROM `documento` WHERE `numerod`=numero INTO @cedula;
+    BEGIN
+	
+	IF(cedula > 0)
+	THEN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+	END IF;
+    END;
+    START TRANSACTION;
+    INSERT INTO documento (`idd`, `tipod`, `numerod`, `extension`) VALUES (NULL, tipo, numero, extension);
+    SELECT MAX(idd) INTO @ultimodocumento from documento;
+    INSERT INTO persona (`idpe`, `nombres`, `apellidos`, `celular`, `estadoCivil`, `ocupacion`, `referencias`,`fechanac`, `edad`, `doc`) VALUES (NULL, nombres, apellidos, celular, estado, ocupacion, referencias, fnac, edad, @ultimodocumento);
+    SELECT MAX(idpe) INTO @ultimapersona from persona;
+    INSERT INTO `cliente` (`idc`, `origen_cliente`, `datos`) VALUES (NULL, nacionalidad, @ultimapersona);
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+/*OBTENER EL NOMBRE DEL CLIENTE QUE REGISTRA LA SOLICITUD
+DROP PROCEDURE IF EXISTS p_clientesol
+DELIMITER $$
+CREATE PROCEDURE p_clientesol(IN doc int)
+BEGIN
+SELECT nombres,apellidos FROM persona as p
+INNER JOIN documento as d
+WHERE
+p.doc=d.idd and d.numerod=doc;
+END
+
+
+/*OBTENER LAS FECHAS EN QUE SE REALIZA UNA RESERVA*/
+DELIMITER $$
+CREATE PROCEDURE consultarfechas(IN p int)
+BEGIN
+SELECT fechaIni,fechaFin top FROM solicitud WHERE pieza=p;
+END
+$$
+
+
+
+
+
+
+
+
+
+/*NUEVA ESTADIA*/
+DROP PROCEDURE IF EXISTS p_registrare;
+DELIMITER $$
+CREATE PROCEDURE p_registrare(IN tipos varchar(30), habitacion int,
+ a int, pa int, por int, t int,comprobante varchar(70),
+iddocumento int, observacionsol varchar(255),
+inicio date, fin date, dias int)
+BEGIN
+    DECLARE upag int(11);
+    DECLARE cli int(11);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    IF(tipos = "estadia")
+    THEN
+    UPDATE `habitacion` SET `estadoOcupado` = 'ocupada' WHERE `habitacion`.`numeroh` = habitacion;
+    ELSE
+    UPDATE `habitacion` SET `estadoOcupado` = 'reservada' WHERE `habitacion`.`numeroh` = habitacion;
+    END IF;
+    INSERT INTO `pago` (`idpa`, `tipopa`, `acuenta`, `pagado`, `porpagar`, `total`, `observacionpago`, `comprobante`, `proveedorp`) VALUES (NULL, '1', a, pa, por, t, observacionsol, comprobante, '1');
+    SELECT MAX(idpa) INTO @upag from pago;
+    SELECT c.idc INTO @cli FROM cliente as c INNER JOIN persona as p ON p.idpe=c.datos INNER JOIN documento as d ON p.doc=d.idd where d.idd=iddocumento;
+    INSERT INTO `solicitud` (`ids`, `tipo`, `fechaIni`, `fechaFin`, `dias`, `cliente`, `observacionSol`, `paga`, `pieza`, `estadoSol`) 
+    VALUES (NULL, tipos, inicio, fin, dias, @cli, observacionsol, @upag, habitacion, '1');
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+
+/*OBTENER DATOS DE RESERVA POR NUMERO DE HABITACION
+DROP PROCEDURE IF EXISTS 'reservas_byhab'
+DELIMITER $$
+CREATE PROCEDURE reservas_byhab(IN hab int)
+BEGIN
+SELECT s.ids,
+p.nombres, p.apellidos, d.numerod,p.celular,
+h.numeroh,h.tipoh, h.precioh, s.fechaIni,s.dias,
+pa.acuenta,pa.pagado, pa.porpagar
+    FROM
+    solicitud as s
+    INNER JOIN habitacion as h
+    ON
+    s.pieza=h.numeroh
+    INNER JOIN pagos as pa
+    ON
+    s.paga=pa.idpa
+    INNER JOIN cliente as c
+    ON
+    s.cliente=c.idc
+    INNER JOIN persona as p
+    ON
+    c.datos=p.idpe
+    INNER JOIN documento as d
+    ON
+    p.doc=d.idd WHERE h.numeroh=hab AND s.tipo='reserva' AND s.estadoSolicitud='0' ORDER BY s.ids ASC LIMIT 1;
+END
+$$
+
+/*OBTENER DATOS DE RESERVA POR NUMERO DE HABITACION 2
+DROP PROCEDURE IF EXISTS p_reservabyhab;
+DELIMITER $$
+CREATE PROCEDURE p_reservabyhab(IN hab int)
+BEGIN
+SELECT s.ids,
+p.nombres, p.apellidos, d.numerod,p.celular,
+h.numeroh,h.tipoh, h.precioh, s.fechaIni,s.dias,
+pa.acuenta,pa.pagado, pa.porpagar
+    FROM
+    solicitud as s
+    INNER JOIN habitacion as h
+    ON
+    s.pieza=h.numeroh
+    INNER JOIN pago as pa
+    ON
+    s.paga=pa.idpa
+    INNER JOIN cliente as c
+    ON
+    s.cliente=c.idc
+    INNER JOIN persona as p
+    ON
+    c.datos=p.idpe
+    INNER JOIN documento as d
+    ON
+    p.doc=d.idd WHERE h.numeroh=hab AND s.tipo='reserva' AND s.estadoSol='1' ORDER BY s.ids ASC LIMIT 1;
+END
+$$
+
+/*Procedimiento para obtener el pago dependiendo del ticket*/
+DROP PROCEDURE IF EXISTS 'pagos_byticket'
+DELIMITER $$
+CREATE PROCEDURE pagos_byticket(IN ticket int)
+BEGIN
+SELECT pa.acuenta,pa.pagado,pa.porpagar from pagos as pa
+inner join solicitud as s
+ON
+pa.idpa=s.paga
+WHERE s.ids=ticket;
+END
+$$
+
+/*LIBERAR HABITACION*/
+DROP PROCEDURE IF EXISTS p_liberarHab;
+DELIMITER $$
+CREATE PROCEDURE p_liberarHab(IN hab int, ticket int )
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `habitacion` SET `estadoOcupado` = 'disponible', `estadoLimpieza` = 'desordenada' WHERE `habitacion`.`numeroh` = hab;
+    UPDATE `solicitud` SET `estadoSol` = '0' WHERE `solicitud`.`ids` = ticket;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+
+/*ORDENAR HABITACION*/
+DELIMITER $$
+CREATE PROCEDURE p_cestado(IN habitacion int )
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `habitacion` SET `estadoOcupado` = 'libre' WHERE `habitacion`.`numeroh` = habitacion;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+/*Editar pagos*/
+DROP PROCEDURE IF EXISTS p_editarpago;
+DELIMITER $$
+CREATE PROCEDURE p_editarpago(IN s int, a int, p int, x int)
+BEGIN
+    DECLARE solicitud int;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    SELECT paga INTO @solicitud FROM solicitud where ids=s;
+    UPDATE `pago` SET `acuenta` = a, `pagado` = p, `porpagar` = x WHERE `pago`.`idpa` =@solicitud;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+
+/*CONFIRMAR ESTADIA*/
+DROP PROCEDURE IF EXISTS p_confirmar_estadia;
+DELIMITER $$
+CREATE PROCEDURE p_confirmar_estadia(IN ticket int, habitacion int)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `solicitud` SET `tipo` = 'estadia' WHERE `solicitud`.`ids` = ticket;
+    UPDATE `habitacion` SET `estadoOcupado` = 'ocupada' WHERE `habitacion`.`numeroh` = habitacion;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+/*Cancelar reserva*/
+DELIMITER $$
+CREATE PROCEDURE p_cancelarRes(IN h int, t int)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `sofi`.`habitacion` SET `estadoOcupado` = 'disponible' WHERE `habitacion`.`numeroh` = h;
+    UPDATE `solicitud` SET `tipo` = 'cancelada' WHERE `solicitud`.`pieza` = h AND `solicitud`.`ids` = t;
+    UPDATE `sofi`.`solicitud` SET `estadoSolicitud` = '2' WHERE `solicitud`.`ids` = t;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+$$
+
+
+/*LISTADO DE RESERVAS POR FECHA*/
+DROP PROCEDURE IF EXISTS p_listareservas;
+DELIMITER $$
+CREATE PROCEDURE p_listareservas()
+BEGIN
+SELECT s.ids,h.numeroh, s.fechaIni,p.nombres,p.apellidos,d.numerod, s.estadoSol 
+FROM
+solicitud as s 
+INNER JOIN habitacion as h 
+ON s.pieza=h.numeroh 
+INNER JOIN pago as pa 
+ON s.paga=pa.idpa 
+INNER JOIN cliente as c 
+ON s.cliente=c.idc 
+INNER JOIN persona as p 
+ON c.datos=p.idpe 
+INNER JOIN documento as d 
+ON p.doc=d.idd
+WHERE s.tipo='reserva' ORDER by s.fechaIni DESC;
+END
+$$
+
+/*LISTADO DE RESERVAS GRAL/
+DROP PROCEDURE IF EXISTS 'p_reservasgral'
+DELIMITER $$
+CREATE PROCEDURE p_reservasgral()
+BEGIN
+SELECT * FROM solicitud WHERE tipo='reserva' ORDER by fechaIni DESC;
+END
+$$
+
+/*LISTADO DE OBSERVACIONES POR HABITACION/
+DROP PROCEDURE IF EXISTS 'p_observacionHabitacion'
+DELIMITER $$
+CREATE PROCEDURE p_observacionHabitacion(IN h int)
+BEGIN
+SELECT * FROM `obshabitacion` WHERE estadoObs=1 AND habitacion=h;
+END
+$$
+
+/*CERRAR UNA OBSERVACION*/
+DROP PROCEDURE IF EXISTS p_cerrarObs;
+DELIMITER $$
+CREATE PROCEDURE p_cerrarObs(IN h INT)
+BEGIN
+    DECLARE hab int;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `obshabitacion` SET `estadoObs` = '0' WHERE `obshabitacion`.`idobs` = h;
+    SELECT habitacion into @hab from obshabitacion WHERE idobs=h;
+    UPDATE `habitacion` SET `estadoOcupado` = 'disponible' WHERE `habitacion`.`numeroh` = @hab;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+$$
+
+/*CERRAR UNA OBSERVACION*/
+DELIMITER $$
+CREATE PROCEDURE p_editarObs(IN id INT, o varchar(255))
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `obshabitacion` SET `observacion` = o WHERE `obshabitacion`.`idobs` = id;
+
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+$$
+
+/*ULTIMA OBSERVACION*/
+DROP PROCEDURE IF EXISTS p_ultimaObs;
+DELIMITER $$
+CREATE PROCEDURE p_ultimaObs()
+BEGIN
+    DECLARE obs int;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    SELECT max(idobs) into @obs from obshabitacion;
+    SELECT @obs AS obs
+    COMMIT;
+END
+$$
+
+/*LIBERAR EL ESTADO DE LA HABITACION CON SU OBSERVACION*/
+DROP PROCEDURE IF EXISTS p_ordenarHab;
+DELIMITER $$
+CREATE PROCEDURE p_ordenarHab(IN i DATE, f DATE, o VARCHAR(255), h INT)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE `habitacion` SET `estadoLimpieza` = 'limpia' WHERE `habitacion`.`numeroh` = h;
+    INSERT INTO `obshabitacion` (`idobs`, `ifecobs`, `ffecobs`, `observacion`, `tipoObs`, `estadoObs`, `habitacion`)
+    VALUES (NULL, i, f, o, 'Mantenimiento', '1', h);
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+$$
+
+/*LIBERAR EL ESTADO DE LA HABITACION CON SU OBSERVACION*/
+DROP PROCEDURE IF EXISTS p_modificarestadia;
+DELIMITER $$
+CREATE PROCEDURE p_modificarestadia(IN t INT, d int, te int)
+BEGIN
+    DECLARE doc int;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    SELECT idd into @doc FROM documento WHERE numerod=t;
+    UPDATE `solicitud` SET `tipo` = te, `cliente` =@doc WHERE `solicitud`.`ids` = t;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+$$
+
+/*LISTAR LAS HABITACIONES EN OBSERVACION*/
+DROP PROCEDURE IF EXISTS p_habitacionesObs;
+DELIMITER $$
+CREATE PROCEDURE p_habitacionesObs()
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    SELECT habitacion FROM obshabitacion WHERE tipoObs='Mantenimiento' AND estadoObs=1;
+    COMMIT;
+END
+$$
+
+
+/*REGISTRAR UNA OBSERVACION*/
+DROP PROCEDURE IF EXISTS p_registrarObs;
+DELIMITER $$
+CREATE PROCEDURE p_registrarObs(IN h INT, i DATE, f DATE, t VARCHAR(30), o VARCHAR(255))
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    IF(t = "Mantenimiento")
+     THEN
+     UPDATE `habitacion` SET `estadoLimpieza` = 'desordenada' WHERE `habitacion`.`numeroh` = h;
+     UPDATE `habitacion` SET `estadoOcupado` = 'reparacion' WHERE `habitacion`.`numeroh` = h;
+     ELSE
+     UPDATE `habitacion` SET `estadoLimpieza` = 'limpia' WHERE `habitacion`.`numeroh` = h;
+    END IF;
+    START TRANSACTION;
+    INSERT INTO `obshabitacion` (`idobs`, `ifecobs`, `ffecobs`, `observacion`, `tipoObs`, `estadoObs`, `habitacion`) VALUES (NULL, i, f, o, t, '1', h);
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END;
+$$
+
+/*OBTENER TODOS LOS PAGOS PENDIENTES CON DATOS DE SOLICITUD Y NOMBRE DE USUARIO*/
+DROP PROCEDURE IF EXISTS p_pagospen;
+DELIMITER $$
+CREATE PROCEDURE p_pagospen()
+BEGIN
+SELECT 
+s.ids, p.nombres, p.apellidos, d.numerod, h.numeroh, s.fechaIni, s.dias, pa.acuenta, pa.porpagar
+FROM solicitud as s
+INNER JOIN cliente as c ON s.cliente=c.idc
+INNER JOIN persona as p ON c.datos=p.idpe
+INNER JOIN documento as d ON p.doc=d.idd
+INNER JOIN habitacion as h ON s.pieza=h.numeroh
+INNER JOIN pagos as pa ON s.paga=pa.idpa
+WHERE pa.porpagar > 0 AND s.estadoSolicitud=1
+ORDER BY s.ids DESC;
+END;
+$$
+
+/*PROCEDIMIENTO PARA OBTENER INFORMES DE PAGOS DESDE FECHA INICIO - FIN*/
+DROP PROCEDURE IF EXISTS p_pagosxf;
+DELIMITER $$
+CREATE PROCEDURE p_pagosxf(IN inicio DATE, fin DATE)
+BEGIN
+  SELECT s.ids,s.tipo,s.fechaIni,s.fechaFin,p.acuenta,p.pagado,p.porpagar,p.total 
+  FROM solicitud as s
+  INNER JOIN pago as p 
+  WHERE s.paga=p.idpa AND p.porpagar = 0 AND fechaIni BETWEEN inicio AND fin AND fechaFin BETWEEN inicio AND fin ORDER BY ids;
+
+END;
+$$
+
+/*PROCEDIMIENTO PARA OBTENER INFORMES DE PAGOS EN GENERAL*/
+drop PROCEDURE IF EXISTS p_pagosg;
+DELIMITER $$
+CREATE PROCEDURE p_pagosg()
+BEGIN
+  SELECT s.ids,s.tipo,s.fechaIni,s.fechaFin,p.acuenta,p.pagado,p.porpagar,p.total 
+  FROM solicitud as s
+  INNER JOIN pago as p 
+  ON s.paga=p.idpa WHERE p.porpagar=0 ORDER BY ids;
+END;
+$$
+
+
+
+/*Procedimiento para obtener detalle de una reserva dependiendo del ticket*/
+DROP PROCEDURE IF EXISTS p_detallereserva;
+DELIMITER $$
+CREATE PROCEDURE p_detallereserva(IN ticket int)
+BEGIN
+SELECT s.ids,
+p.nombres, p.apellidos, d.numerod,p.celular,
+h.numeroh,h.tipoh,s.fechaIni,s.dias, h.precioh,
+pa.acuenta,pa.pagado,pa.porpagar
+    FROM
+    solicitud as s
+    INNER JOIN habitacion as h
+    ON
+    s.pieza=h.numeroh
+    INNER JOIN pago as pa
+    ON
+    s.paga=pa.idpa
+    INNER JOIN cliente as c
+    ON
+    s.cliente=c.idc
+    INNER JOIN persona as p
+    ON
+    c.datos=p.idpe
+    INNER JOIN documento as d
+    ON
+    p.doc=d.idd
+WHERE s.ids=ticket;
+END
+$$
+
+DELIMITER $$
+CREATE PROCEDURE prueba(IN ticket int)
+BEGIN
+    DECLARE habitacion int(11);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    UPDATE solicitud SET estadoSolicitud = '1' WHERE ids = ticket;
+    SELECT pieza INTO @habitacion FROM solicitud where ids=ticket;
+    UPDATE habitacion SET estadoOcupado = 'ocupada' WHERE numeroh = @habitacion;
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+
+/**ULTIMA SOLICITUD ASIGNADA AL TICKET/
+DROP PROCEDURE IF EXISTS p_solicitudbyhab;
+DELIMITER $$
+CREATE PROCEDURE p_solicitudbyhab(IN hab int)
+BEGIN
+SELECT s.ids,
+p.nombres, p.apellidos, d.numerod,p.celular,
+h.numeroh,h.tipoh,h.precioh, s.fechaIni,s.dias,
+pa.acuenta,pa.pagado, pa.porpagar
+    FROM
+    solicitud as s
+    INNER JOIN habitacion as h
+    ON
+    s.pieza=h.numeroh
+    INNER JOIN pago as pa
+    ON
+    s.paga=pa.idpa
+    INNER JOIN cliente as c
+    ON
+    s.cliente=c.idc
+    INNER JOIN persona as p
+    ON
+    c.datos=p.idpe
+    INNER JOIN documento as d
+    ON
+    p.doc=d.idd WHERE h.numeroh=hab AND s.estadoSol=1 ORDER BY s.ids DESC LIMIT 1;
+END
+$$
+
+
+
+/**DETALLE DE UN PAGO DE ACUERDO A LA SOLICITUD/
+DROP PROCEDURE IF EXISTS p_solicitada;
+DELIMITER $$
+CREATE PROCEDURE p_solicitada(IN sol int)
+BEGIN
+SELECT s.ids, p.nombres, p.apellidos, d.numerod,p.celular, h.numeroh,h.tipoh,h.precioh, s.fechaIni,s.dias, pa.acuenta,pa.pagado, pa.porpagar 
+FROM solicitud as s INNER JOIN habitacion as h ON s.pieza=h.numeroh 
+INNER JOIN pago as pa ON s.paga=pa.idpa 
+INNER JOIN cliente as c ON s.cliente=c.idc 
+INNER JOIN persona as p ON c.datos=p.idpe 
+INNER JOIN documento as d ON p.doc=d.idd 
+WHERE s.ids=sol AND s.estadoSol='0' ORDER BY s.ids DESC LIMIT 1;
+END
+$$
+
+/*LISTADO DE CLIENTES REGISTRADOS A LA FECHA*/
+DROP PROCEDURE IF EXISTS p_lclientes;
+DELIMITER $$
+CREATE PROCEDURE p_lclientes()
+BEGIN
+SELECT c.idc, p.nombres,p.apellidos,d.tipod,d.numerod,c.origen_cliente,p.celular,p.estadoCivil,p.ocupacion
+FROM
+cliente as c INNER JOIN
+persona as p
+ON c.datos=p.idpe
+INNER JOIN documento as d
+ON p.doc=d.idd;
+END;
+$$
+
+/*DETALLE DE CLIENTE PARA EDICION*/
+DROP PROCEDURE IF EXISTS p_dcliente;
+DELIMITER $$
+CREATE PROCEDURE p_dcliente(IN i INT)
+BEGIN
+SELECT p.nombres,p.apellidos,d.numerod,p.celular,p.fechanac,p.edad
+FROM
+cliente as c INNER JOIN
+persona as p
+ON c.datos=p.idpe
+INNER JOIN documento as d
+ON p.doc=d.idd
+WHERE c.idc=i;
+END;
+$$
+
+/**DETALLE DE UN PAGO DE ACUERDO A LA SOLICITUD/
+DROP PROCEDURE IF EXISTS p_solicitada;
+DELIMITER $$
+CREATE PROCEDURE p_solicitada(IN sol int)
+BEGIN
+SELECT s.ids, p.nombres, p.apellidos, d.numerod,p.celular, h.numeroh,h.tipoh,h.precioh, s.fechaIni,s.dias, pa.acuenta,pa.pagado, pa.porpagar 
+FROM solicitud as s INNER JOIN habitacion as h ON s.pieza=h.numeroh 
+INNER JOIN pago as pa ON s.paga=pa.idpa 
+INNER JOIN cliente as c ON s.cliente=c.idc 
+INNER JOIN persona as p ON c.datos=p.idpe 
+INNER JOIN documento as d ON p.doc=d.idd 
+WHERE s.ids=sol AND s.estadoSol='0' ORDER BY s.ids DESC LIMIT 1;
+END
+$$
+
+/**DETALLE DE UNA HABITACION A MODIFICAR/
+DROP PROCEDURE IF EXISTS p_dmodest;
+DELIMITER $$
+CREATE PROCEDURE p_dmodest(IN sol int)
+BEGIN
+SELECT d.numerod, p.nombres, p.apellidos, s.tipo , s.fechaini, s.fechafin, s.dias, h.numeroh, h.tipoh, h.precioh, pa.pagado, pa.porpagar
+FROM solicitud as s INNER JOIN habitacion as h ON s.pieza=h.numeroh 
+INNER JOIN pago as pa ON s.paga=pa.idpa 
+INNER JOIN cliente as c ON s.cliente=c.idc 
+INNER JOIN persona as p ON c.datos=p.idpe 
+INNER JOIN documento as d ON p.doc=d.idd 
+WHERE s.ids=sol AND s.estadoSol='1' ORDER BY s.ids DESC LIMIT 1;
+END
+$$
+
+/*EDITAR LOS DATOS DE UN CLIENTE*/
+DELIMITER $$
+CREATE PROCEDURE p_editarCli(IN id INT, n VARCHAR(60), a VARCHAR(60),d INT,
+c INT, f date, e INT)
+BEGIN
+    DECLARE doc INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+    START TRANSACTION;
+    SELECT idd INTO @doc FROM persona as p INNER JOIN documento as d on p.doc=d.idd where p.idpe=id;
+    UPDATE `documento` SET `numerod` = d WHERE `documento`.`idd` = @doc;
+    UPDATE `persona` SET `nombres` = n, `apellidos` = a, `celular` = c, `fechanac` = f, `edad` = e WHERE `persona`.`idpe` = id;
+
+    SELECT 'OK' AS resultado;
+    COMMIT;
+END
+$$
+
+/*OBTENER CANTIDAD DE VECES QUE UNA PIEZA FUE SOLICITADA*/
+DROP PROCEDURE IF EXISTS p_estadisticas;
+DELIMITER $$
+CREATE PROCEDURE p_estadisticas()
+BEGIN
+ SELECT pieza as habitacion from solicitud;
+END;
+$$
+
+/*OBTENER DATOS DE PAGOS EN GENERAL*/
+DROP PROCEDURE IF EXISTS p_estadisticasp;
+DELIMITER $$
+CREATE PROCEDURE p_estadisticasp()
+BEGIN
+ SELECT * from PAGO;
+END;
+$$
+
+/*OBTENER DETALLE DE UNA HABITACION PARA EDICION*/
+DROP PROCEDURE IF EXISTS p_dhabitacion;
+DELIMITER $$
+CREATE PROCEDURE p_dhabitacion(IN h int)
+BEGIN
+ SELECT precioh FROM `habitacion` WHERE numeroh=h;
+END;
+$$
+
+/*EDITAR LOS DETALLES DE UNA HABITACION*/
+DROP PROCEDURE IF EXISTS p_editarhab;
+DELIMITER $$
+CREATE PROCEDURE p_editarhab(IN h int, t varchar(50), p int, e varchar(20))
+BEGIN
+ DECLARE estado varchar(20);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+
+    END;
+    START TRANSACTION;
+
+    SELECT estadoOcupado INTO @estado FROM `habitacion` WHERE numeroh=h;
+
+    IF(@estado = "disponible")
+    THEN
+     UPDATE `habitacion` SET `tipoh` = t, `precioh` = p, `estadoLimpieza` = e WHERE `habitacion`.`numeroh` = h;
+     SELECT 'OK' AS resultado;
+    ELSE
+    SELECT 'ERROR' AS resultado;
+    END IF;
+    COMMIT;
+END;
+$$
+
+/*LISTADO DE USUARIOS REGISTRADOS A LA FECHA*/
+DELIMITER $$
+CREATE PROCEDURE p_lusuarios()
+BEGIN
+SELECT u.idu,p.nombres,p.apellidos,u.nicku,t.nombretipo,p.celular
+FROM
+usuario as u
+INNER JOIN persona as p
+ON u.responsable=p.idpe
+INNER JOIN tipousuario as t
+ON
+u.tipo=t.idt
+END;
+$$
+
+/*DETALLE USUARIO*/
+DELIMITER $$
+CREATE PROCEDURE p_detusu(IN id int)
+BEGIN
+SELECT 
+u.idu,
+d.numerod,d.extension,d.tipod,p.fechanac,p.edad,
+p.nombres,p.apellidos,p.celular,p.referencias,
+p.estadoCivil,p.ocupacion,
+u.nicku,u.passu,t.idt
+FROM
+usuario as u
+INNER JOIN persona as p
+ON u.responsable=p.idpe
+INNER JOIN tipousuario as t
+ON
+u.tipo=t.idt
+INNER JOIN documento as d
+ON
+p.doc=d.idd
+WHERE u.idu=id;
+END;
+$$
+
+/*EDITAR USUARIO*/
+DELIMITER $$
+CREATE PROCEDURE p_edusu(IN id int, ti varchar(50), nu int, ex varchar(10), 
+no varchar(60), ap varchar(60), cel varchar(30), est varchar(25), ocu varchar(30), ref varchar(30), fec date, ed int, 
+ni varchar(60), cl varchar(60),tipou int)
+BEGIN
+    DECLARE resp int(11);
+    DECLARE iddoc int(11);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION, SQLWARNING
+    BEGIN
+        SELECT 'ERROR' AS resultado;
+        ROLLBACK;
+    END;
+  START TRANSACTION;
+  SELECT responsable INTO @resp FROM usuario WHERE idu=id;
+  SELECT doc INTO @iddoc FROM persona WHERE idpe=@resp;
+  UPDATE `documento` SET `tipod` = ti, `numerod` = nu, `extension` = ex WHERE `documento`.`idd` = @iddoc;
+  UPDATE `persona` SET `nombres` = no, `apellidos` = ap, `celular` = cel, `estadoCivil` = est, `ocupacion` = ocu, `referencias` = ref, `fechanac` = fec, `edad` = ed, `doc` = @iddoc WHERE `persona`.`idpe` = @resp;
+  UPDATE `usuario` SET `nicku` = ni, `passu` = cl, `responsable` = @resp, `tipo` = tipou WHERE `usuario`.`idu` = id;
+  SELECT 'OK' AS resultado;
+  COMMIT;
+END;
+$$
+
+/*OBTENER EL REGISTRO DE EVENTOS EN LA BITACORA*/
+DROP PROCEDURE IF EXISTS p_eventos;
+DELIMITER $$
+CREATE PROCEDURE p_eventos()
+BEGIN
+select e.idevento,e.evento,e.fechaevento,e.horaevento,u.nicku
+FROM
+usuario as u
+INNER JOIN bitacora as e
+ON
+e.responsable=u.idu ORDER BY e.idevento ASC;
+END;
+$$
+
+
+
+
+CALL registrar_usuario('ci','1234567','scz','juan','mu�oz','74585659','65845895','juanmagan','123','1');
+
+CALL prueba('ci','1234567','scz');
+
+SQLEXCEPTION!, transacci�n abortada en el ultimo d...
+
+
+
